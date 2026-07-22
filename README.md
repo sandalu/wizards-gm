@@ -85,7 +85,7 @@ Then open <http://localhost:3000>.
 The app is built in verifiable phases. Each is runnable before the next begins.
 
 - [x] **Phase 0** — Project setup: scaffold, Prisma schema + initial migration, nav shell
-- [ ] **Phase 1** — Data model & seeding (30 teams + ~450 real players)
+- [x] **Phase 1** — Data model & seeding (30 teams + ~450 real players)
 - [ ] **Phase 2** — Initial snake draft (15 rounds, persisted)
 - [ ] **Phase 3** — Roster, salary cap & lineup management
 - [ ] **Phase 4** — Season simulation with real per-player box scores

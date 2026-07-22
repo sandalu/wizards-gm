@@ -80,5 +80,60 @@ works; this file is the "how we got here" log.)
 
 ### Not done yet (intentionally)
 
-- No git repo initialized / no commit — waiting for your go-ahead.
 - No seeding — that's Phase 1.
+
+---
+
+## Phase 1 — Data model & seeding ✅
+
+**Date:** 2026-07-22
+
+### What I did
+
+1. Transcribed the real data **verbatim** from `reference/wizards-gm.jsx` into a
+   typed module `lib/data/nba.ts`: `TEAMS` (30 real teams w/ conferences + brand
+   colors), `CURATED` + `CURATED_2` (the curated real-player rows), plus
+   `POSITIONS`, `WIZ`, `BASE_SEASON`, `ROSTER_SIZE`, `TOTAL_PLAYERS`.
+2. Added `buildPool()` — replicates the artifact's pool logic exactly: concat the
+   two arrays, de-dupe by lowercased name (keeps the first), slice to 450.
+3. Added `derivePlayer()` / `derivedPool()` — derives an approximate age, career
+   stage, and potential per player from the source tag, using a **seeded PRNG
+   (mulberry32)** so the derivation is reproducible across seed runs.
+4. Wrote `prisma/seed.ts` — idempotent (wipes all tables in dependency order,
+   then inserts). Seeds 30 teams (WAS flagged `isUserControlled`) and 450 players
+   as free agents (no contracts yet — those come in Phase 3). Verifies counts and
+   warns if the pool is short of 450.
+5. Wired `npm run db:seed` → `tsx prisma/seed.ts` (added `tsx` as a dev dep).
+6. Made the home page a **server component** that reads live counts + the top-8
+   rated players straight from the DB, proving the runtime Prisma client + driver
+   adapter works inside Next (not just in the standalone seed script).
+7. Verified: seed output = 30 teams / 450 players (legend 57, prime 63, veteran
+   207, rookie 123); homepage renders "30 teams, 450 real players, Michael Jordan
+   99" over HTTP 200; `npm run build` passes with `/` now server-rendered.
+
+### Decisions worth knowing
+
+- **Exactly 450 unique players** after de-dupe — perfect, since 30 teams × 15 =
+  450 fills every roster in the Phase 2 draft with zero leftovers. (One duplicate
+  name, "Isaiah Thomas", exists in both arrays — the legend PG 90 is kept, the
+  modern 85 is dropped, matching the original artifact.)
+- **Career-stage derivation is heuristic.** The source only tags Legend / Star /
+  Veteran, so: Legend → `legend` (age 34–40, no growth); Star → `prime` (25–29,
+  small upside); Veteran splits by rating — `rookie` if OVR ≤ 76 (age 20–23, real
+  upside, to stand in for recent draftees) else `veteran` (age 30–36). This is the
+  spec's "approximate age/career stage," and it front-loads sensible potential for
+  the Phase 7 development curve.
+- **Players seeded as free agents.** Team membership comes from `Contract`, which
+  the draft (Phase 2) + cap (Phase 3) create. Phase 1 only needs the pool to exist.
+- **`force-dynamic` on the home page** so it always reflects current DB state
+  rather than being frozen at build time.
+
+### Mistakes / gotchas
+
+- None blocking this phase. Watched for `tsx` not resolving the `@/` path alias,
+  so `seed.ts` imports the generated client and data module by **relative path**
+  and calls `import "dotenv/config"` itself to load `DATABASE_URL`.
+
+### Not done yet (intentionally)
+
+- No contracts/salaries yet (Phase 3), no draft (Phase 2).

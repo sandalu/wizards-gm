@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { prisma } from "@/lib/prisma";
 
 const SECTIONS = [
   {
@@ -28,7 +29,21 @@ const SECTIONS = [
   },
 ];
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const [teamCount, playerCount, topPlayers] = await Promise.all([
+    prisma.team.count(),
+    prisma.player.count(),
+    prisma.player.findMany({
+      orderBy: { currentOverall: "desc" },
+      take: 8,
+      select: { id: true, name: true, position: true, currentOverall: true },
+    }),
+  ]);
+
+  const seeded = teamCount > 0 && playerCount > 0;
+
   return (
     <div>
       <section className="mb-8">
@@ -40,6 +55,55 @@ export default function Home() {
           the other 29 teams. Every player is a real NBA player. Everything is
           saved to a database, so your franchise survives closing the browser.
         </p>
+      </section>
+
+      <section className="mb-8 rounded-xl p-4 border border-[var(--panel-border)] bg-[var(--panel)]">
+        <div className="text-xs uppercase tracking-wide text-slate-500 font-bold mb-3">
+          League Data
+        </div>
+        {seeded ? (
+          <div className="flex flex-wrap gap-6">
+            <div>
+              <div className="text-2xl font-mono font-bold text-white">
+                {teamCount}
+              </div>
+              <div className="text-xs text-slate-500">teams</div>
+            </div>
+            <div>
+              <div className="text-2xl font-mono font-bold text-white">
+                {playerCount}
+              </div>
+              <div className="text-xs text-slate-500">real players</div>
+            </div>
+            <div className="flex-1 min-w-[220px]">
+              <div className="text-xs text-slate-500 mb-1.5">
+                Top-rated available
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {topPlayers.map((p) => (
+                  <span
+                    key={p.id}
+                    className="text-xs rounded-md px-2 py-1 bg-white/5 text-slate-200"
+                  >
+                    <span className="font-mono text-[var(--gold)]">
+                      {p.currentOverall}
+                    </span>{" "}
+                    {p.name}{" "}
+                    <span className="text-slate-500">{p.position}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400">
+            No data yet. Run{" "}
+            <code className="text-slate-200 bg-white/10 rounded px-1">
+              npm run db:seed
+            </code>{" "}
+            to load the 30 teams and ~450 real players.
+          </p>
+        )}
       </section>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -60,8 +124,8 @@ export default function Home() {
       </div>
 
       <p className="text-slate-600 text-xs mt-8">
-        Phase 0 complete — project scaffold, database schema, and navigation.
-        Draft, simulation, and trades arrive in later phases.
+        Phases 0–1 complete — scaffold, schema, navigation, and a seeded league of
+        30 real teams and {playerCount} real players. Draft is next.
       </p>
     </div>
   );
