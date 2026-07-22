@@ -1,0 +1,144 @@
+// Wizards GM — franchise simulator schema
+// SQLite for local dev; field types kept portable to Postgres later.
+// No native enums (SQLite doesn't support them) — string fields with documented values.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Team {
+  id               String  @id @default(cuid())
+  name             String
+  abbreviation     String  @unique
+  conference       String // 'E' | 'W'
+  primaryColor     String
+  isUserControlled Boolean @default(false)
+
+  contracts       Contract[]
+  homeGames       Game[]         @relation("HomeTeam")
+  awayGames       Game[]         @relation("AwayTeam")
+  boxScoreLines   BoxScoreLine[]
+  draftPicks      DraftPick[]    @relation("PickTeam")
+  originalPicks   DraftPick[]    @relation("OriginalOwner")
+  tradesInitiated Trade[]        @relation("InitiatingTeam")
+  tradesReceived  Trade[]        @relation("OtherTeam")
+  awards          Award[]
+}
+
+model Player {
+  id             String  @id @default(cuid())
+  name           String
+  position       String // PG | SG | SF | PF | C
+  birthYear      Int
+  age            Int
+  careerStage    String // rookie | prime | veteran | legend
+  baseOverall    Int
+  currentOverall Int
+  potential      Int
+  isReal         Boolean @default(true)
+  retiredAt      Int? // season year retired; null while active
+
+  contract      Contract?
+  boxScoreLines BoxScoreLine[]
+  draftPicks    DraftPick[]
+  awards        Award[]
+}
+
+model Contract {
+  id             String @id @default(cuid())
+  playerId       String @unique // one active contract per player
+  player         Player @relation(fields: [playerId], references: [id])
+  teamId         String
+  team           Team   @relation(fields: [teamId], references: [id])
+  yearsRemaining Int
+  annualSalary   Int // dollars
+  signedSeason   Int
+}
+
+model Season {
+  id         String  @id @default(cuid())
+  year       Int     @unique
+  isComplete Boolean @default(false)
+
+  games      Game[]
+  draftPicks DraftPick[]
+  trades     Trade[]
+  awards     Award[]
+}
+
+model Game {
+  id         String   @id @default(cuid())
+  seasonId   String
+  season     Season   @relation(fields: [seasonId], references: [id])
+  homeTeamId String
+  homeTeam   Team     @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeamId String
+  awayTeam   Team     @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  homeScore  Int
+  awayScore  Int
+  playedAt   DateTime @default(now())
+  isPlayoff  Boolean  @default(false)
+  round      String? // regular | R1 | R2 | CONF | FINALS
+
+  boxScoreLines BoxScoreLine[]
+}
+
+model BoxScoreLine {
+  id        String @id @default(cuid())
+  gameId    String
+  game      Game   @relation(fields: [gameId], references: [id])
+  playerId  String
+  player    Player @relation(fields: [playerId], references: [id])
+  teamId    String
+  team      Team   @relation(fields: [teamId], references: [id])
+  points    Int
+  rebounds  Int
+  assists   Int
+  steals    Int
+  blocks    Int
+  turnovers Int
+  minutes   Int
+}
+
+model DraftPick {
+  id                  String  @id @default(cuid())
+  seasonId            String
+  season              Season  @relation(fields: [seasonId], references: [id])
+  round               Int
+  pickNumber          Int
+  teamId              String
+  team                Team    @relation("PickTeam", fields: [teamId], references: [id])
+  playerId            String? // null until the pick is made
+  player              Player? @relation(fields: [playerId], references: [id])
+  originalOwnerTeamId String
+  originalOwner       Team    @relation("OriginalOwner", fields: [originalOwnerTeamId], references: [id])
+}
+
+model Trade {
+  id               String   @id @default(cuid())
+  seasonId         String
+  season           Season   @relation(fields: [seasonId], references: [id])
+  initiatingTeamId String
+  initiatingTeam   Team     @relation("InitiatingTeam", fields: [initiatingTeamId], references: [id])
+  otherTeamId      String
+  otherTeam        Team     @relation("OtherTeam", fields: [otherTeamId], references: [id])
+  status           String // proposed | accepted | rejected | countered
+  assets           String // JSON: { fromInitiating: {playerIds, pickIds}, fromOther: {...} }
+  createdAt        DateTime @default(now())
+}
+
+model Award {
+  id       String @id @default(cuid())
+  seasonId String
+  season   Season @relation(fields: [seasonId], references: [id])
+  type     String // MVP | DPOY | ROY | 6MOY | COY | AllNBA1st/2nd/3rd | AllDefense1st | FinalsMVP
+  playerId String
+  player   Player @relation(fields: [playerId], references: [id])
+  teamId   String
+  team     Team   @relation(fields: [teamId], references: [id])
+}
