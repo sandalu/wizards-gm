@@ -11,6 +11,15 @@ import {
   nextOpenSlot,
   runCpuUntilUserOrDone,
 } from "@/lib/draftEngine";
+import { autoAssignStartersForAll } from "@/lib/rosterEngine";
+
+/** When the draft has no open slots left, give every team a default lineup. */
+async function assignStartersIfComplete(seasonId: string) {
+  const open = await prisma.draftPick.count({
+    where: { seasonId, playerId: null },
+  });
+  if (open === 0) await autoAssignStartersForAll();
+}
 
 function revalidateDraft() {
   revalidatePath("/draft");
@@ -23,6 +32,7 @@ export async function startDraft() {
   const season = await getOrCreateCurrentSeason();
   await createDraftOrder(season.id);
   await runCpuUntilUserOrDone(season.id, season.year);
+  await assignStartersIfComplete(season.id);
   revalidateDraft();
 }
 
@@ -48,6 +58,7 @@ export async function userDraft(playerId: string) {
 
   await makePick(slot.id, slot.teamId, player, season.year);
   await runCpuUntilUserOrDone(season.id, season.year);
+  await assignStartersIfComplete(season.id);
   revalidateDraft();
 }
 

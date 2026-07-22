@@ -38,3 +38,22 @@ export function randomContractYears(): number {
 export function formatSalary(dollars: number): string {
   return `$${(dollars / 1_000_000).toFixed(1)}M`;
 }
+
+export interface CapSummary {
+  total: number;
+  space: number; // cap - total (negative when over)
+  overCap: boolean;
+  overTax: boolean;
+}
+
+/** Cap position for a given total payroll. */
+export function capSummary(total: number): CapSummary {
+  return {
+    total,
+    space: SALARY_CAP - total,
+    overCap: total > SALARY_CAP,
+    overTax: total > LUXURY_TAX_LINE,
+  };
+}
+
+export const STARTERS = 5;

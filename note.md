@@ -200,3 +200,61 @@ works; this file is the "how we got here" log.)
 ### Not done yet (intentionally)
 
 - Roster/cap page + lineup management is Phase 3.
+
+---
+
+## Phase 3 — Roster, cap & lineup management ✅
+
+**Date:** 2026-07-22
+
+### What I did
+
+1. **Schema:** added `Contract.isStarter Boolean @default(false)` and migrated
+   (`add_contract_isstarter`). A team's starting five = its 5 contracts with
+   `isStarter = true`.
+2. `lib/cap.ts` (extended): `capSummary(total)` → `{ total, space, overCap,
+   overTax }` (pure), plus a `STARTERS = 5` constant. (`SALARY_CAP` $140M and
+   `LUXURY_TAX_LINE` $170M were already defined in Phase 2.)
+3. `lib/rosterEngine.ts`: `autoAssignStartersForAll()` (marks each team's top-5
+   by overall as starters if none are set — idempotent), `payrollByTeam()`
+   (Prisma `groupBy` sum of salaries), and `setStarter(contractId, makeStarter)`
+   which enforces at most 5 starters and returns a status string.
+4. **Draft hook:** `app/draft/actions.ts` now calls `autoAssignStartersForAll()`
+   once the draft has no open slots, so every roster gets a default lineup the
+   moment the draft finishes.
+5. `app/roster/actions.ts`: `toggleStarter` server action, guarded so **only
+   Washington's** lineup is editable.
+6. `app/roster/page.tsx`: server component driven by `?team=ABBR` (default WAS).
+   Team-badge selector for all 30 teams, selected roster split into Starters
+   (5) / Bench (10), a cap sheet (payroll, space, Over-cap / Luxury-tax / Under-
+   cap badge), and a league-wide payroll table with over-cap flags. Washington's
+   rows get Start/Bench toggle buttons (bound server action); the button to
+   promote is disabled once 5 starters are set. Other teams are read-only.
+7. `components/TeamBadge.tsx` extracted for reuse.
+
+### Verification
+
+- `npm run build` clean (`/roster` dynamic).
+- Drove a full draft + `autoAssignStartersForAll()`: WAS = 5 starters / 15
+  roster, payroll **$140.9M**, league total starters **150** (30×5).
+- Rendered `/roster`: WAS shows the **Over cap** badge (140.9M > 140M), the
+  League Payroll table, 5 Bench + 10 Start buttons. `/roster?team=BOS` is
+  read-only (0 toggle buttons) — confirms the WAS-only guard.
+- Starter-limit logic checked directly: promoting a 6th → `starters-full`
+  (rejected); demote then promote → `ok`; count stays 5.
+
+### Decisions worth knowing
+
+- **Lineup = pick any 5** (no positional constraints) — simplest picker that
+  satisfies "starters vs bench." Starters are ordered PG→C for display only.
+- **Team selection is URL-driven** (`?team=ABBR`) so the page stays server-
+  rendered and shareable — no client state needed for browsing 30 rosters.
+- **CPU lineups are auto-set** to top-5 overall; only Washington's is editable,
+  matching "you run Washington."
+- Reminder learned again: after a schema change, **`prisma generate` must run**
+  before the app type-checks. `migrate dev` usually does it, but the generated
+  client lagged once here — a manual `npx prisma generate` fixed the build.
+
+### Not done yet (intentionally)
+
+- Season simulation with box scores is Phase 4.

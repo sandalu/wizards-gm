@@ -58,6 +58,7 @@ model Contract {
   yearsRemaining Int
   annualSalary   Int // dollars
   signedSeason   Int
+  isStarter      Boolean @default(false) // in the team's starting five
 }
 
 model Season {
