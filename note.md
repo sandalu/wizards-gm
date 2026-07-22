@@ -136,4 +136,67 @@ works; this file is the "how we got here" log.)
 
 ### Not done yet (intentionally)
 
-- No contracts/salaries yet (Phase 3), no draft (Phase 2).
+- No draft yet (Phase 2).
+
+---
+
+## Phase 2 — Initial snake draft ✅
+
+**Date:** 2026-07-22
+
+### What I did
+
+1. `lib/draft.ts` — ported the artifact's math: `shuffle`, `buildSnakeOrder`
+   (forward/reverse per round), `weightedPickFromTop` (best-available-with-
+   randomness among the top 6).
+2. `lib/cap.ts` — `salaryFor(overall, age)` (salary scales with overall², reduced
+   for rookies/aging vets; $1.5M floor, $55M ceiling), `randomContractYears` (1–4,
+   same weighting as the artifact), `formatSalary`. Shared with Phase 3.
+3. `lib/draftEngine.ts` — **pure DB logic** (no `revalidatePath`): create the
+   snake order as 450 `DraftPick` slots, pick weighted-best for a slot (creating
+   the player's `Contract` atomically in a transaction), and a CPU loop that
+   advances until Washington is on the clock or the draft ends.
+4. `app/draft/actions.ts` — thin `"use server"` wrappers: `startDraft`,
+   `userDraft(playerId)`, `resetDraft`, each calling the engine + revalidating.
+5. `app/draft/DraftBoard.tsx` — client board with search + position filter and a
+   `useTransition` pick button that calls the `userDraft` server action.
+6. `app/draft/page.tsx` — server component that reads live draft state: start
+   screen, on-the-clock header + progress bar, the board when it's WAS's turn,
+   the Wizards roster + recent-picks sidebar, and a "draft complete" state.
+7. `scripts/test-draft.ts` (`npm run test:draft`) — integration test that runs a
+   FULL draft against the DB and asserts the invariants, then resets.
+
+### How the draft flow works (important design choice)
+
+- **All 450 picks are pre-created** as `DraftPick` rows in snake order when the
+  draft starts. "On the clock" = the lowest-`pickNumber` slot with no player yet.
+- **The server auto-runs every CPU pick.** After the user picks (and on start),
+  the action drives CPU picks until Washington is next or the draft is done. So
+  the persisted state *always* has WAS on the clock (or is complete) — meaning a
+  **page refresh resumes exactly where you left off**, with zero client-side sim.
+  This satisfies the spec's "results can't be gamed or lost on refresh."
+- Each pick creates a real `Contract` (salary from `salaryFor`, 1–4 yr length) in
+  the same transaction as filling the slot.
+
+### Verification
+
+- `npm run test:draft` → all 9 checks pass: 450 slots filled, 0 open, 450
+  contracts, every team exactly 15, no player drafted twice, salaries within
+  [$1.5M, $51.6M] observed, contract lengths 1–4.
+- `npm run build` clean; `/draft` renders the Start screen; after driving the
+  engine to WAS's turn, `/draft` renders the board (Your Pick, search, available
+  players like LeBron, roster + recent-picks sidebar).
+
+### Mistakes / gotchas
+
+- **`revalidatePath` can't run outside a request**, so I split the DB logic into
+  `lib/draftEngine.ts` (testable) and kept `revalidatePath` only in the
+  `"use server"` actions. Cleaner and lets the integration test drive the engine.
+- **tsx + node_modules resolution:** a throwaway script placed in the system temp
+  dir failed to resolve `dotenv`/deps (no `node_modules` there). Test/util scripts
+  must live **inside the project** (`scripts/`). tsx *does* resolve the `@/` path
+  alias from the project tsconfig, which is why the engine imports work.
+
+### Not done yet (intentionally)
+
+- Roster/cap page + lineup management is Phase 3.
