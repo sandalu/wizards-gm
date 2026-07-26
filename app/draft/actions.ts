@@ -62,11 +62,15 @@ export async function userDraft(playerId: string) {
   revalidateDraft();
 }
 
-/** Wipe the current draft (and the contracts it created) to start over. */
+/** Wipe the current draft — contracts, picks, and any simulated games — to
+ *  start the franchise over from an empty league. */
 export async function resetDraft() {
   const season = await getCurrentSeason();
   if (!season) return;
+  await prisma.boxScoreLine.deleteMany({ where: { game: { seasonId: season.id } } });
+  await prisma.game.deleteMany({ where: { seasonId: season.id } });
   await prisma.contract.deleteMany();
   await prisma.draftPick.deleteMany({ where: { seasonId: season.id } });
   revalidateDraft();
+  revalidatePath("/standings");
 }

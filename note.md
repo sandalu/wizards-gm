@@ -258,3 +258,59 @@ works; this file is the "how we got here" log.)
 ### Not done yet (intentionally)
 
 - Season simulation with box scores is Phase 4.
+
+---
+
+## Phase 4 — Season simulation with real box scores ✅
+
+**Date:** 2026-07-26
+
+### What I did
+
+1. `lib/sim.ts` — **pure** game math (no DB): `teamRating` (top-9 weighted),
+   `rotation` (9-man, starters first), `distributeInteger` (largest-remainder
+   integer allocation that sums exactly), and `simulateGame` → per-team scores
+   plus a full `StatLine` per rotation player (min/pts/reb/ast/stl/blk/to).
+   Scores come from each team's rating vs. the opponent + home edge + noise;
+   team stat totals are distributed to players by overall, minutes, and
+   position weights (bigs rebound/block, guards assist/steal, etc.).
+2. `lib/seasonEngine.ts` — `simulateRegularSeason` (double round-robin = every
+   team hosts every other once → 870 games; clears prior regular-season games
+   first, generates explicit `randomUUID` ids so `Game` + `BoxScoreLine` rows
+   insert via chunked `createMany` with no per-row round-trips), plus read
+   helpers `standingsForSeason`, `wizardsGames`, `gameBox`, `hasGames`,
+   `isDraftComplete`.
+3. `app/standings/actions.ts` — `simulateSeason` server action (guards on a
+   complete draft).
+4. `app/standings/page.tsx` — start/simulate screen → after sim shows
+   Washington's record and full schedule; each game links to its box score.
+   A Re-simulate control re-runs it.
+5. `app/standings/game/[id]/page.tsx` — the box-score view: away + home stat
+   tables sorted by points, with the final score.
+6. `resetDraft` now also clears games + box scores so a reset is a true wipe.
+7. `scripts/test-sim.ts` (`npm run test:sim`).
+
+### Verification
+
+- `npm run test:sim`: **870 games / 15,660 box lines in ~2.1s**, all 7 checks
+  pass — box points sum exactly to each team's score in every game, minutes sum
+  to 240 per team per game, no negative stats, no ties, standings balance
+  870W/870L, Washington plays 58 games (went 30-28).
+- UI: `/standings` shows the WAS record + schedule; a game page renders 9
+  players per team with real stat lines (verified 18 box lines / game, e.g. a
+  120–97 result). `npm run build` clean (`/standings/game/[id]` dynamic).
+
+### Decisions worth knowing
+
+- **Full league box scores are stored** (~15.7k rows/season), not just Wizards
+  games — Phase 6 awards (MVP/DPOY/etc.) need league-wide player stats.
+- **Explicit UUID ids** for `Game`/`BoxScoreLine` so we can bulk-insert both
+  tables with `createMany` (SQLite `createMany` can't return ids). ~2s total.
+- Double round-robin (870 games), not a literal 82-game schedule — the spec
+  allows this and it keeps every matchup home-and-away.
+- Sim math is heuristic/approximate by design; the invariant that matters
+  (points reconcile to the score) is enforced by `distributeInteger` + tested.
+
+### Not done yet (intentionally)
+
+- Conference standings tables + best-of-7 playoffs are Phase 5.
