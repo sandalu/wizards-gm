@@ -491,3 +491,57 @@ franchise history (Phase 9).
 ### Not done yet (intentionally)
 
 - Trades (propose/evaluate/accept with cap rules) are Phase 8.
+
+---
+
+## Phase 8 — Trades ✅
+
+**Date:** 2026-07-27
+
+### What I did
+
+1. `lib/tradeValue.ts` — pure aggregate value: `playerTradeValue` blends overall
+   (convex, so stars dominate), an age curve, and years of contract control;
+   `ACCEPT_TOLERANCE` (12%) and `COUNTER_FLOOR` (55%).
+2. `lib/tradeEngine.ts` — `getTradeRoster`, `evaluateTrade` (pure), `proposeTrade`
+   (DB). The CPU accepts if what it receives ≥ (1 − tolerance) of what it gives;
+   if the deal is close-but-short it **counters by upgrading Washington's offer**
+   (swap the weakest offered player for a better one — keeps roster sizes legal);
+   otherwise rejects. `legal()` enforces roster bounds (8–15) and a cap band:
+   salaries must roughly match once a team ends up over the cap, with a hard
+   ceiling of luxury-tax + $20M. Accepted trades move contracts (and re-top-up
+   both starting fives). Every proposal is persisted as a `Trade` row.
+3. `app/trades/actions.ts` — `submitTrade` server action returning the decision.
+4. `app/trades/TradeMachine.tsx` — client: pick players from each side, propose,
+   see accept/reject/counter with the value comparison, and one-click **accept a
+   counter**.
+5. `app/trades/page.tsx` — team selector, the trade machine, and recent trade
+   activity.
+6. `scripts/test-trades.ts` (`npm run test:trades`).
+
+### Verification
+
+- `npm run test:trades`: all 14 checks pass — synthetic logic (equal swap
+  accepted, scrub-for-star rejected, star-for-scrub accepted, slight underpay
+  **countered with an upgraded offer**, accepting the counter accepted, roster-
+  gutting rejected, value monotonic) and DB application (empty side invalid, a
+  fair 1-for-1 accepted, both players' contracts moved to the other team, rosters
+  stay 15/15, the accepted trade persisted).
+- UI: `/trades` shows both rosters, Propose Trade, and Recent Trade Activity with
+  the accepted deal. `npm run build` clean. DB re-seeded fresh.
+
+### Mistakes / gotchas
+
+- **First counter design was illegal.** I countered by *adding* a Washington
+  player, which turns a 1-for-1 into a 2-for-1 and pushes the (full) CPU roster
+  to 16 — rejected by the roster check, so no counter ever formed. Fixed by
+  countering as an **upgrade-in-place** (swap the weakest offered player for a
+  better one), which preserves roster sizes. The test caught this.
+- **Salary matching interacts with value.** A value-lopsided "overpay" can still
+  be rejected if the receiving team ends up over the cap and the salaries don't
+  match — realistic, and why the DB test picks closest-overall (similar-salary)
+  pairs to get a clean acceptance.
+
+### Not done yet (intentionally)
+
+- Franchise history page + player detail + win-trend charts are Phase 9.
