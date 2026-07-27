@@ -156,11 +156,29 @@ export async function advanceOffseason(oldSeasonId: string): Promise<OffseasonSu
   }
   await chunkedTx(contractOps);
 
-  // 3. New rookie class from the real reserve (names not already used).
+  // 3a. Vacancies after churn + free-agent supply, so we can size the rookie
+  //     class to guarantee every roster can refill to 15.
+  const counts = await prisma.contract.groupBy({ by: ["teamId"], _count: { _all: true } });
+  const roster: Record<string, number> = {};
+  for (const c of counts) roster[c.teamId] = c._count._all;
+  const vacancies: Record<string, number> = {};
+  let totalVac = 0;
+  for (const t of teams) {
+    const v = Math.max(0, ROSTER_SIZE - (roster[t.id] ?? 0));
+    vacancies[t.id] = v;
+    totalVac += v;
+  }
+  const freeAgents = await prisma.player.count({
+    where: { retiredAt: null, contract: { is: null } },
+  });
+  // At least ROOKIE_CLASS_SIZE, but enough that free agents + rookies >= vacancies.
+  const classSize = Math.max(ROOKIE_CLASS_SIZE, totalVac - freeAgents);
+
+  // 3b. New rookie class from the real reserve (names not already used).
   const existing = new Set(
     (await prisma.player.findMany({ select: { name: true } })).map((p) => p.name.toLowerCase()),
   );
-  const fresh = RESERVE.filter((r) => !existing.has(r[0].toLowerCase())).slice(0, ROOKIE_CLASS_SIZE);
+  const fresh = RESERVE.filter((r) => !existing.has(r[0].toLowerCase())).slice(0, classSize);
   const rookieData = fresh.map(([name, position, ovr]) => ({
     name,
     position,
@@ -174,8 +192,8 @@ export async function advanceOffseason(oldSeasonId: string): Promise<OffseasonSu
     retiredAt: null as number | null,
   }));
   let fictional = 0;
-  if (rookieData.length < ROOKIE_CLASS_SIZE) {
-    fictional = ROOKIE_CLASS_SIZE - rookieData.length;
+  if (rookieData.length < classSize) {
+    fictional = classSize - rookieData.length;
     for (let i = 0; i < fictional; i++) {
       const ovr = randi(66, 74);
       rookieData.push({
@@ -212,18 +230,6 @@ export async function advanceOffseason(oldSeasonId: string): Promise<OffseasonSu
     .sort((a, b) => pct(a.id) - pct(b.id))
     .map((t) => t.id);
   const order = [...lotteryDraw(nonPlayoffWorstFirst), ...playoffWorstFirst];
-
-  // Vacancies per team after churn.
-  const counts = await prisma.contract.groupBy({ by: ["teamId"], _count: { _all: true } });
-  const roster: Record<string, number> = {};
-  for (const c of counts) roster[c.teamId] = c._count._all;
-  const vacancies: Record<string, number> = {};
-  let totalVac = 0;
-  for (const t of teams) {
-    const v = Math.max(0, ROSTER_SIZE - (roster[t.id] ?? 0));
-    vacancies[t.id] = v;
-    totalVac += v;
-  }
 
   const maxVac = Math.max(0, ...Object.values(vacancies));
   const slots: {

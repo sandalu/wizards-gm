@@ -10,6 +10,7 @@ import {
 import type { BracketJSON, SeriesJSON } from "@/lib/playoffEngine";
 import { WIZ } from "@/lib/data/nba";
 import TeamBadge from "@/components/TeamBadge";
+import StandingsBarChart from "@/components/StandingsBarChart";
 import { simulateSeason, runPostseason, advanceToOffseason } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -370,6 +371,23 @@ export default async function StandingsPage() {
             Finals.
           </p>
         )}
+      </div>
+
+      {/* Standings chart — wins by team */}
+      <div className="rounded-xl p-4 mb-6 border border-[var(--panel-border)] bg-[var(--panel)]">
+        <div className="text-xs text-slate-500 font-bold uppercase tracking-wide mb-2">
+          Wins by Team
+        </div>
+        <StandingsBarChart
+          data={[...teamsRaw]
+            .map((t) => ({
+              abbr: t.abbreviation,
+              wins: standings[t.id]?.wins ?? 0,
+              color: t.primaryColor,
+              isWiz: t.abbreviation === WIZ,
+            }))
+            .sort((a, b) => b.wins - a.wins)}
+        />
       </div>
 
       {/* Conference standings */}

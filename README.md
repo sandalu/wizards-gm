@@ -93,7 +93,7 @@ The app is built in verifiable phases. Each is runnable before the next begins.
 - [x] **Phase 6** — Awards (MVP, DPOY, ROY, 6MOY, COY, All-NBA, Finals MVP)
 - [x] **Phase 7** — Offseason: aging, contracts, draft lottery, new draft class
 - [x] **Phase 8** — Trades (CPU value evaluation + cap rules)
-- [ ] **Phase 9** — Franchise history & polish (charts, player detail pages)
+- [x] **Phase 9** — Franchise history & polish (charts, player detail pages)
 
 See `note.md` for a running log of what was built, decisions made, and problems
 hit along the way.

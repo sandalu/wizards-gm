@@ -88,9 +88,12 @@ export default async function RosterPage({
         {c.player.currentOverall}
       </span>
       <span className="flex-1 min-w-0">
-        <span className="block text-sm font-semibold text-white truncate">
+        <Link
+          href={`/player/${c.playerId}`}
+          className="block text-sm font-semibold text-white truncate hover:text-[var(--gold)]"
+        >
           {c.player.name}
-        </span>
+        </Link>
         <span className="block text-xs text-slate-400 font-mono">
           {c.player.position} · age {c.player.age} · {c.yearsRemaining}yr ·{" "}
           {formatSalary(c.annualSalary)}

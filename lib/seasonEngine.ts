@@ -208,7 +208,7 @@ export async function gameBox(gameId: string) {
 
   const lines = await prisma.boxScoreLine.findMany({
     where: { gameId },
-    include: { player: { select: { name: true, position: true } } },
+    include: { player: { select: { id: true, name: true, position: true } } },
     orderBy: { points: "desc" },
   });
 

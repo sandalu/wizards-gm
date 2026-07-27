@@ -14,7 +14,7 @@ interface Line {
   steals: number;
   blocks: number;
   turnovers: number;
-  player: { name: string; position: string };
+  player: { id: string; name: string; position: string };
 }
 
 function BoxTable({
@@ -55,7 +55,9 @@ function BoxTable({
             {lines.map((l) => (
               <tr key={l.id} className="border-t border-white/5">
                 <td className="py-1 pr-2 font-sans text-white whitespace-nowrap">
-                  {l.player.name}{" "}
+                  <Link href={`/player/${l.player.id}`} className="hover:text-[var(--gold)]">
+                    {l.player.name}
+                  </Link>{" "}
                   <span className="text-slate-500">{l.player.position}</span>
                 </td>
                 <td className="py-1 px-1 text-right text-slate-400">{l.minutes}</td>

@@ -109,7 +109,7 @@ async function main() {
     where: { careerStage: "rookie", age: 19, birthYear: season2!.year - 19 },
     select: { isReal: true },
   });
-  check("rookie class added", rookies.length === ROOKIE_CLASS_SIZE, `${rookies.length}`);
+  check("rookie class added (>= base size)", rookies.length >= ROOKIE_CLASS_SIZE, `${rookies.length}`);
   check(
     "rookies are real (reserve not exhausted)",
     rookies.every((r) => r.isReal),
@@ -128,6 +128,15 @@ async function main() {
     !!pick1 && !playoffSet.has(pick1.teamId),
   );
 
+  // Supply must cover demand — every open slot must be fillable.
+  const openSlots = await prisma.draftPick.count({
+    where: { seasonId: season2!.id, playerId: null },
+  });
+  const available = await prisma.player.count({
+    where: { contract: { is: null }, retiredAt: null },
+  });
+  check("enough real players to fill the draft", available >= openSlots, `${available} avail / ${openSlots} open`);
+
   // No team exceeds the roster cap at any point.
   const counts = await prisma.contract.groupBy({ by: ["teamId"], _count: { _all: true } });
   check("no roster over 15", counts.every((c) => c._count._all <= ROSTER_SIZE));
@@ -137,7 +146,7 @@ async function main() {
   const sum2 = await advanceOffseason(season2!.id);
   const season3 = await prisma.season.findFirst({ orderBy: { year: "desc" } });
   check("second advance → year+2", season3!.year === season1.year + 2, `${season3!.year}`);
-  check("second rookie class added", sum2!.rookies === ROOKIE_CLASS_SIZE);
+  check("second rookie class added", sum2!.rookies >= ROOKIE_CLASS_SIZE);
 
   console.log(failures === 0 ? "\nALL CHECKS PASSED ✅" : `\n${failures} CHECK(S) FAILED ❌`);
   if (failures > 0) process.exitCode = 1;

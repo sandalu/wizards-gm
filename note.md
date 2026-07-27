@@ -545,3 +545,59 @@ franchise history (Phase 9).
 ### Not done yet (intentionally)
 
 - Franchise history page + player detail + win-trend charts are Phase 9.
+
+---
+
+## Phase 9 — Franchise history & polish ✅
+
+**Date:** 2026-07-27
+
+### What I did
+
+1. Installed **Recharts** (v3, React-19 compatible) for charts.
+2. `lib/history.ts` — `seasonSummaries()`: per season, the champion, MVP, Finals
+   MVP, and Washington's record + playoff result (parsed from the stored bracket:
+   Champion / Lost Finals / Lost Conf Finals / Lost 2nd Round / Lost 1st Round /
+   Missed Playoffs).
+3. `app/history/page.tsx` — Franchise History: a **win-trend line chart** for
+   Washington across seasons plus a table of every completed season (champion,
+   MVP, Finals MVP, Wizards record + result), newest first.
+4. `app/player/[id]/page.tsx` — **player detail**: header (position, status,
+   age, overall/potential, career stage, "Fictional Prospect" tag if applicable)
+   and a career stat table (GP/PPG/RPG/APG/SPG/BPG per season + a career row),
+   aggregated from all regular-season box scores.
+5. `components/WinTrendChart.tsx` + `components/StandingsBarChart.tsx` — client
+   Recharts components. Added a **"Wins by Team" bar chart** (Wizards outlined)
+   to the standings page.
+6. **Player links** wired from the roster page and box-score page to
+   `/player/[id]` (added the player id to `gameBox`'s select).
+
+### Verification
+
+- Played two full seasons via a scratch script; confirmed:
+  - `/history` renders the win-trend chart (SVG) + a table with 2026/2027,
+    champions, MVPs, and Wizards results (e.g. "Lost 1st Round").
+  - `/standings` renders the "Wins by Team" bar chart, champion banner, awards
+    panel, bracket, and the gold "Advance to {next year}" button.
+  - `/player/[id]` shows a career table with per-season PPG/RPG/etc. + a Career
+    total row.
+- `npm run build` clean (all routes, `/player/[id]` + `/history` dynamic).
+
+### Mistake I fixed (offseason supply bug, found here)
+
+Setting up multi-season data exposed a real bug in **Phase 7**: in a heavy-
+retirement year, total vacancies (e.g. 112) exceeded the free-agent + 45-rookie
+supply, so ~13 draft slots were **unfillable** and the offseason draft could
+never complete (`isDraftComplete` stayed false → the standings page was stuck on
+"finish the draft"). **Fix:** size the rookie class as
+`max(ROOKIE_CLASS_SIZE, totalVacancies − freeAgents)` so free agents + rookies
+always cover the vacancies. Added a `test:offseason` assertion that available
+players ≥ open slots, and relaxed the exact "== 45" rookie checks to ">=".
+(Over enough heavy seasons the ~120-name reserve will still eventually dip into
+labelled "Fictional Prospect" fallbacks — by design.)
+
+### Project complete
+
+All nine phases (0–9) are built, tested, and verified. Test suites:
+`npm run test:draft | test:sim | test:playoffs | test:awards | test:offseason |
+test:trades`. The database is re-seeded to a fresh single-season state.
