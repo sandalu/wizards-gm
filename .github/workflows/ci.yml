@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DATABASE_URL: "file:./dev.db"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # Installs deps; postinstall runs `prisma generate`.
+      - name: Install dependencies
+        run: npm ci
+
+      # Create the local SQLite database from the committed migrations.
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: Build
+        run: npm run build
+
+      # Seed a fresh league before each suite so they're independent.
+      - name: Run test suites
+        run: |
+          set -e
+          for suite in draft sim playoffs awards offseason trades; do
+            echo "::group::test:$suite"
+            npm run db:seed
+            npm run test:$suite
+            echo "::endgroup::"
+          done
