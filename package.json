@@ -15,7 +15,8 @@
     "test:draft": "tsx scripts/test-draft.ts",
     "test:sim": "tsx scripts/test-sim.ts",
     "test:playoffs": "tsx scripts/test-playoffs.ts",
-    "test:awards": "tsx scripts/test-awards.ts"
+    "test:awards": "tsx scripts/test-awards.ts",
+    "test:offseason": "tsx scripts/test-offseason.ts"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.9.0",

@@ -1,10 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { isDraftComplete, simulateRegularSeason, hasGames } from "@/lib/seasonEngine";
 import { runPlayoffs } from "@/lib/playoffEngine";
 import { computeSeasonAwards } from "@/lib/awardsEngine";
+import { advanceOffseason } from "@/lib/offseasonEngine";
 
 /** Simulate (or re-simulate) the current season's regular schedule. Clears any
  *  playoffs/champion, since the bracket depends on the regular-season results. */
@@ -40,4 +42,19 @@ export async function runPostseason() {
   revalidatePath("/standings");
   revalidatePath("/history");
   revalidatePath("/");
+}
+
+/** Advance from a completed season into the next: age players, expire contracts,
+ *  retire vets, add a real rookie class, run the lottery, then open the draft. */
+export async function advanceToOffseason() {
+  const season = await prisma.season.findFirst({ orderBy: { year: "desc" } });
+  if (!season || !season.isComplete) return;
+
+  await advanceOffseason(season.id);
+  revalidatePath("/");
+  revalidatePath("/roster");
+  revalidatePath("/standings");
+  revalidatePath("/draft");
+  revalidatePath("/history");
+  redirect("/draft");
 }

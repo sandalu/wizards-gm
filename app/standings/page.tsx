@@ -10,7 +10,7 @@ import {
 import type { BracketJSON, SeriesJSON } from "@/lib/playoffEngine";
 import { WIZ } from "@/lib/data/nba";
 import TeamBadge from "@/components/TeamBadge";
-import { simulateSeason, runPostseason } from "./actions";
+import { simulateSeason, runPostseason, advanceToOffseason } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -216,7 +216,17 @@ export default async function StandingsPage() {
         <h1 className="text-xl font-extrabold uppercase tracking-wide text-white">
           Standings — {season.year}
         </h1>
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center">
+          {season.isComplete && (
+            <form action={advanceToOffseason}>
+              <button
+                className="text-xs font-semibold px-3 py-1.5 rounded-md text-white"
+                style={{ background: "var(--gold)", color: "#0b1220" }}
+              >
+                Advance to {season.year + 1} →
+              </button>
+            </form>
+          )}
           <form action={simulateSeason}>
             <button className="text-xs text-slate-500 hover:text-red-400 underline">
               Re-simulate

@@ -420,3 +420,74 @@ works; this file is the "how we got here" log.)
 
 - Offseason (aging, contract decrement, retirements, draft lottery, new real
   rookie class) is Phase 7.
+
+---
+
+## Phase 7 — Offseason: aging, contracts, lottery, rookie class ✅
+
+**Date:** 2026-07-27
+
+### What I did
+
+1. `lib/data/reserve.ts` — a reserve of ~120 **real** NBA players (recent role
+   players + historical greats) beyond the original 450, drawn on for rookie
+   classes. Deduped by name at draw time, so overlaps with the 450 are skipped.
+2. `lib/offseasonEngine.ts` — `advanceOffseason(oldSeasonId)`:
+   - **Aging + development** (`developOverall`): <24 can break out (+, capped by
+     potential), 24–30 stable, 31–34 gradual decline, 35+ steep decline.
+     Career stage transitions rookie→prime→veteran with age.
+   - **Retirements** (`shouldRetire`): probability climbs with age (35+), higher
+     for low-rated players; retirees get `retiredAt` and lose their contract.
+   - **Contracts** decrement; those hitting 0 (or belonging to retirees) are
+     deleted → the player becomes a free agent (re-enters the pool).
+   - **New rookie class** (`ROOKIE_CLASS_SIZE = 45`) from the reserve (real names
+     not already in the DB), age 19 with upside potential; **only if the reserve
+     is exhausted** does it fall back to `isReal: false` "Fictional Prospect N".
+   - **New season** row (year+1); old season marked complete.
+   - **Draft lottery**: non-playoff teams (worst-first) get weighted odds
+     (`lotteryDraw`) for the top picks; playoff teams follow in reverse-standings
+     order. Draft slots are created only for each team's vacancies.
+   - Runs CPU picks up to Washington (reusing the Phase-2 engine); tops up
+     starters if the draft auto-completes.
+3. `autoAssignStartersForAll` upgraded to **top up to 5** starters (not just fill
+   empty lineups) — needed when retirements/expirations leave a team short.
+4. `app/standings/actions.ts` — `advanceToOffseason` server action (advances then
+   redirects to `/draft`); a gold **"Advance to {year+1} →"** button appears on
+   the standings page once the season is complete. The existing draft page/board
+   handle the offseason vacancy draft unchanged.
+5. `scripts/test-offseason.ts` (`npm run test:offseason`).
+
+### How the multi-year loop works
+
+Finish a season (sim → playoffs → awards) → **Advance** → players age, vets
+retire, contracts expire, a real rookie class enters, the lottery sets the order
+→ you draft Washington's vacancies on the same draft screen → simulate the new
+season → repeat. Every past season's games, awards, and champion are retained for
+franchise history (Phase 9).
+
+### Verification
+
+- `npm run test:offseason`: all 13 checks pass. One run: **43 retired, 45 real
+  rookies (0 fictional), 86 vacancies**; every prior player aged +1; overalls
+  stayed in [66,99]; no contract left at 0 years; retirees hold no contract;
+  contract count didn't grow; rookie class = 45 real reserve players; draft slots
+  == vacancies; **pick #1 went to a non-playoff team** (lottery); no roster over
+  15; and a **second** advance reached year+2 with a fresh rookie class.
+- UI: after advancing, `/draft` shows the new year's vacancy draft with real
+  reserve rookies available (e.g. Scoot Henderson, Bob Pettit) and Washington on
+  the clock. `npm run build` clean. DB re-seeded to a pristine single-season
+  state afterward.
+
+### Decisions worth knowing
+
+- **Reserve dedupe by name** (no consumption counter needed) — each offseason
+  simply takes the next unused real names, which naturally advances the class.
+- **Vacancy-only draft**: teams draft just enough to refill to 15, in
+  lottery/reverse order — so the offseason draft is short (~86 picks) vs. the
+  450-pick initial one.
+- Free agents (expired/undrafted) age too and remain in the pool for future
+  drafts.
+
+### Not done yet (intentionally)
+
+- Trades (propose/evaluate/accept with cap rules) are Phase 8.

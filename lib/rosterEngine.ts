@@ -4,8 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { STARTERS } from "@/lib/cap";
 
 /**
- * For any team that has a full-enough roster but no starters marked yet, mark
- * its top-5 players by overall as starters. Idempotent — safe to call anytime.
+ * Ensure every team has up to STARTERS starters. Promotes the best non-starters
+ * by overall until the team has 5 (or runs out of players). Idempotent — used
+ * after the initial draft and after each offseason (when retirements/expirations
+ * can leave a team short of a full starting five).
  */
 export async function autoAssignStartersForAll() {
   const teams = await prisma.team.findMany({ select: { id: true } });
@@ -13,18 +15,19 @@ export async function autoAssignStartersForAll() {
     const starterCount = await prisma.contract.count({
       where: { teamId: t.id, isStarter: true },
     });
-    if (starterCount > 0) continue;
+    const need = STARTERS - starterCount;
+    if (need <= 0) continue;
 
-    const top = await prisma.contract.findMany({
-      where: { teamId: t.id },
+    const promote = await prisma.contract.findMany({
+      where: { teamId: t.id, isStarter: false },
       orderBy: { player: { currentOverall: "desc" } },
-      take: STARTERS,
+      take: need,
       select: { id: true },
     });
-    if (top.length === 0) continue;
+    if (promote.length === 0) continue;
 
     await prisma.contract.updateMany({
-      where: { id: { in: top.map((c) => c.id) } },
+      where: { id: { in: promote.map((c) => c.id) } },
       data: { isStarter: true },
     });
   }
