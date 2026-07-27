@@ -28,6 +28,7 @@ model Team {
   tradesInitiated Trade[]        @relation("InitiatingTeam")
   tradesReceived  Trade[]        @relation("OtherTeam")
   awards          Award[]
+  championships   Season[]       @relation("Champion")
 }
 
 model Player {
@@ -47,6 +48,7 @@ model Player {
   boxScoreLines BoxScoreLine[]
   draftPicks    DraftPick[]
   awards        Award[]
+  finalsMvpOf   Season[]       @relation("FinalsMVP")
 }
 
 model Contract {
@@ -65,6 +67,12 @@ model Season {
   id         String  @id @default(cuid())
   year       Int     @unique
   isComplete Boolean @default(false)
+
+  championTeamId String?
+  championTeam   Team?   @relation("Champion", fields: [championTeamId], references: [id])
+  finalsMvpId    String?
+  finalsMvp      Player? @relation("FinalsMVP", fields: [finalsMvpId], references: [id])
+  bracket        String? // JSON snapshot of the playoff bracket
 
   games      Game[]
   draftPicks DraftPick[]

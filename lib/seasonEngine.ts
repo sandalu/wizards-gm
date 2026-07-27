@@ -21,6 +21,31 @@ async function insertChunked<T>(rows: T[], fn: (chunk: T[]) => Promise<unknown>)
   }
 }
 
+/** Each team's roster as SimPlayers, keyed by team id. Shared by season + playoffs. */
+export async function loadSimRosters(): Promise<Record<string, SimPlayer[]>> {
+  const teams = await prisma.team.findMany({
+    select: {
+      id: true,
+      contracts: {
+        select: {
+          isStarter: true,
+          player: { select: { id: true, currentOverall: true, position: true } },
+        },
+      },
+    },
+  });
+  const rosters: Record<string, SimPlayer[]> = {};
+  for (const t of teams) {
+    rosters[t.id] = t.contracts.map((c) => ({
+      playerId: c.player.id,
+      currentOverall: c.player.currentOverall,
+      position: c.player.position,
+      isStarter: c.isStarter,
+    }));
+  }
+  return rosters;
+}
+
 /**
  * Simulate a full regular season: a double round-robin (every team hosts every
  * other team once → home + away), each game producing per-player box scores.
@@ -32,26 +57,8 @@ export async function simulateRegularSeason(seasonId: string) {
   });
   await prisma.game.deleteMany({ where: { seasonId, isPlayoff: false } });
 
-  const teams = await prisma.team.findMany({
-    include: {
-      contracts: {
-        select: {
-          isStarter: true,
-          player: { select: { id: true, currentOverall: true, position: true } },
-        },
-      },
-    },
-  });
-
-  const rosters: Record<string, SimPlayer[]> = {};
-  for (const t of teams) {
-    rosters[t.id] = t.contracts.map((c) => ({
-      playerId: c.player.id,
-      currentOverall: c.player.currentOverall,
-      position: c.player.position,
-      isStarter: c.isStarter,
-    }));
-  }
+  const teams = await prisma.team.findMany({ select: { id: true } });
+  const rosters = await loadSimRosters();
 
   const games: {
     id: string;

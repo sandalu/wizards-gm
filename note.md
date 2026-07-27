@@ -314,3 +314,58 @@ works; this file is the "how we got here" log.)
 ### Not done yet (intentionally)
 
 - Conference standings tables + best-of-7 playoffs are Phase 5.
+
+---
+
+## Phase 5 — Standings & playoffs ✅
+
+**Date:** 2026-07-26
+
+### What I did
+
+1. **Schema:** added to `Season`: `championTeamId` (→ Team), `finalsMvpId`
+   (→ Player), and `bracket` (JSON snapshot). Migrated
+   (`playoffs_champion_bracket`). Back-relations `Team.championships` /
+   `Player.finalsMvpOf`.
+2. **Refactor:** extracted `loadSimRosters()` in `seasonEngine.ts` (used by both
+   the season and playoff engines).
+3. `lib/playoffEngine.ts` — seeds top 8 per conference by win% (tiebreak wins),
+   runs best-of-7 series with the **same** `simulateGame` engine (2-2-1-1-1 home
+   court to the higher seed), through Round 1 → Semis → Conf Finals → NBA Finals.
+   Every playoff game is stored (`isPlayoff: true`, round `R1/R2/CONF/FINALS`)
+   with full box scores. Computes **Finals MVP** = the champion's best composite
+   performer (pts + ½reb + ½ast + stl + blk) across the Finals games. Persists
+   champion, Finals MVP, the bracket JSON, and marks the season complete.
+4. `app/standings/actions.ts` — added `runPostseason`; `simulateSeason` now
+   clears any prior champion/bracket (re-simming the regular season invalidates
+   the playoffs).
+5. `app/standings/page.tsx` — rebuilt: conference standings tables (top-8
+   highlighted, Wizards row tinted), a champion banner (team + Finals MVP), the
+   full bracket (both conferences + Finals) with series scores and winners
+   bolded, a Run/Re-run Playoffs button, and the Wizards schedule.
+6. `scripts/test-playoffs.ts` (`npm run test:playoffs`).
+
+### Verification
+
+- `npm run test:playoffs`: **88 playoff games in ~0.6s**, all 10 checks pass —
+  all 15 series are valid best-of-7 (winner has exactly 4), conference champs
+  come from the correct conference, the Finals is the two conf champs, champion
+  == Finals winner and is persisted, season marked complete, Finals MVP is on
+  the champion's roster, playoff games flagged and their box points reconcile.
+- UI: `/standings` shows conference tables, the champion banner (e.g. **Dallas
+  Mavericks** champion + Finals MVP), and the bracket (Round 1 → Semis → Conf
+  Finals → NBA Finals). `npm run build` clean. DB reset to fresh afterward.
+
+### Decisions worth knowing
+
+- **Bracket stored as JSON on `Season`** rather than reconstructed from game
+  rows — makes the bracket UI trivial and unambiguous, while the individual
+  playoff `Game`/`BoxScoreLine` rows are still stored (so playoff box scores are
+  viewable and the Finals MVP is computed from real stats).
+- Finals home court goes to the better regular-season record.
+- Re-simulating the regular season deliberately wipes the playoffs/champion,
+  since seeding depends on those results.
+
+### Not done yet (intentionally)
+
+- League-wide awards (MVP/DPOY/ROY/6MOY/COY/All-NBA/All-Defense) are Phase 6.
