@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { isDraftComplete, simulateRegularSeason, hasGames } from "@/lib/seasonEngine";
 import { runPlayoffs } from "@/lib/playoffEngine";
+import { computeSeasonAwards } from "@/lib/awardsEngine";
 
 /** Simulate (or re-simulate) the current season's regular schedule. Clears any
  *  playoffs/champion, since the bracket depends on the regular-season results. */
@@ -13,6 +14,7 @@ export async function simulateSeason() {
   if (!(await isDraftComplete(season.id))) return; // rosters not set yet
 
   await simulateRegularSeason(season.id);
+  await prisma.award.deleteMany({ where: { seasonId: season.id } });
   await prisma.season.update({
     where: { id: season.id },
     data: {
@@ -34,6 +36,7 @@ export async function runPostseason() {
   if (!(await hasGames(season.id))) return; // no regular season yet
 
   await runPlayoffs(season.id);
+  await computeSeasonAwards(season.id);
   revalidatePath("/standings");
   revalidatePath("/history");
   revalidatePath("/");

@@ -142,12 +142,13 @@ model Trade {
 }
 
 model Award {
-  id       String @id @default(cuid())
+  id       String  @id @default(cuid())
   seasonId String
-  season   Season @relation(fields: [seasonId], references: [id])
+  season   Season  @relation(fields: [seasonId], references: [id])
   type     String // MVP | DPOY | ROY | 6MOY | COY | AllNBA1st/2nd/3rd | AllDefense1st | FinalsMVP
-  playerId String
-  player   Player @relation(fields: [playerId], references: [id])
+  playerId String? // null for team/coach awards (COY)
+  player   Player? @relation(fields: [playerId], references: [id])
   teamId   String
-  team     Team   @relation(fields: [teamId], references: [id])
+  team     Team    @relation(fields: [teamId], references: [id])
+  rank     Int     @default(1) // ordering within a multi-player award (All-NBA)
 }

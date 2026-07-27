@@ -104,6 +104,25 @@ export default async function StandingsPage() {
       })
     : null;
 
+  const awards = bracket
+    ? await prisma.award.findMany({
+        where: { seasonId: season.id },
+        include: {
+          player: { select: { name: true, position: true } },
+          team: { select: { abbreviation: true, primaryColor: true, name: true } },
+        },
+        orderBy: { rank: "asc" },
+      })
+    : [];
+  type AwardRec = (typeof awards)[number];
+  const awardsByType = new Map<string, AwardRec[]>();
+  for (const a of awards) {
+    const arr = awardsByType.get(a.type) ?? [];
+    arr.push(a);
+    awardsByType.set(a.type, arr);
+  }
+  const solo = (type: string) => awardsByType.get(type)?.[0];
+
   const ConfTable = ({ conf, label }: { conf: string; label: string }) => (
     <div>
       <div className="text-xs text-slate-500 font-bold uppercase tracking-wide mb-2">
@@ -228,6 +247,83 @@ export default async function StandingsPage() {
               <Star size={12} color="var(--gold)" /> Finals MVP: {finalsMvp.name}{" "}
               <span className="text-slate-500">{finalsMvp.position}</span>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Awards */}
+      {awards.length > 0 && (
+        <div className="rounded-xl p-4 mb-6 border border-[var(--panel-border)] bg-[var(--panel)]">
+          <div className="text-xs text-slate-500 font-bold uppercase tracking-wide mb-3">
+            {season.year} Awards
+          </div>
+          <div className="grid sm:grid-cols-2 gap-x-6 gap-y-2 mb-4">
+            {(
+              [
+                ["MVP", "Most Valuable Player"],
+                ["FinalsMVP", "Finals MVP"],
+                ["DPOY", "Defensive Player of the Year"],
+                ["ROY", "Rookie of the Year"],
+                ["6MOY", "Sixth Man of the Year"],
+              ] as const
+            ).map(([type, label]) => {
+              const a = solo(type);
+              if (!a) return null;
+              return (
+                <div key={type} className="flex items-center gap-2">
+                  <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wide w-28 shrink-0">
+                    {label}
+                  </span>
+                  <TeamBadge abbr={a.team.abbreviation} color={a.team.primaryColor} size={18} />
+                  <span className="text-sm text-white truncate">
+                    {a.player?.name}
+                  </span>
+                  {a.player && (
+                    <span className="text-xs text-slate-500 font-mono">
+                      {a.player.position}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+            {solo("COY") && (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wide w-28 shrink-0">
+                  Coach of the Year
+                </span>
+                <TeamBadge
+                  abbr={solo("COY")!.team.abbreviation}
+                  color={solo("COY")!.team.primaryColor}
+                  size={18}
+                />
+                <span className="text-sm text-white truncate">
+                  {solo("COY")!.team.name}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {(["AllNBA1st", "AllNBA2nd", "AllNBA3rd", "AllDefense1st"] as const).map(
+            (type) => {
+              const list = awardsByType.get(type);
+              if (!list || list.length === 0) return null;
+              const label =
+                type === "AllDefense1st"
+                  ? "All-Defensive 1st"
+                  : `All-NBA ${type.slice(-3, -2)}${type.endsWith("1st") ? "st" : type.endsWith("2nd") ? "nd" : "rd"}`;
+              return (
+                <div key={type} className="mb-1.5">
+                  <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wide mr-2">
+                    {label}
+                  </span>
+                  <span className="text-xs text-slate-300">
+                    {list
+                      .map((a) => `${a.player?.name} (${a.team.abbreviation})`)
+                      .join(" · ")}
+                  </span>
+                </div>
+              );
+            },
           )}
         </div>
       )}

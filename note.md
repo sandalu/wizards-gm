@@ -369,3 +369,54 @@ works; this file is the "how we got here" log.)
 ### Not done yet (intentionally)
 
 - League-wide awards (MVP/DPOY/ROY/6MOY/COY/All-NBA/All-Defense) are Phase 6.
+
+---
+
+## Phase 6 — Awards ✅
+
+**Date:** 2026-07-27
+
+### What I did
+
+1. **Schema:** made `Award.playerId` nullable (COY is a team/coach award with no
+   player) and added `Award.rank` (ordering within multi-player awards like
+   All-NBA). Migrated (`awards_nullable_player`).
+2. `lib/awardsEngine.ts` — aggregates each player's regular-season box scores
+   (`groupBy playerId`), derives per-game production (`statVal`), a team-success-
+   blended `mvpScore`, and a defensive `defScore`, then picks:
+   - **MVP** (top mvpScore), **DPOY** (top defScore), **6MOY** (top producer who
+     isn't a starter), **All-NBA 1st/2nd/3rd** (top 15 by mvpScore, 5 each),
+     **All-Defensive 1st** (top 5 defScore).
+   - **ROY** — best rookie by production, with a fallback to the highest-rated
+     rostered rookie (see gotcha).
+   - **COY** — biggest win improvement vs. the prior season for a CPU team;
+     falls back to best CPU record when there's no prior season (year 1).
+   - **Finals MVP** — mirrors `Season.finalsMvpId` from the playoffs.
+   All persisted as `Award` rows (idempotent: clears the season's awards first).
+3. Wired `computeSeasonAwards` into `runPostseason` (after the playoffs, since it
+   needs the Finals MVP); `simulateSeason` clears awards too.
+4. `app/standings/page.tsx` — an Awards panel: the individual awards with player
+   + team badge, COY as a team, and the All-NBA / All-Defensive teams listed.
+5. `scripts/test-awards.ts` (`npm run test:awards`).
+
+### Verification
+
+- `npm run test:awards`: all 12 checks pass — MVP/DPOY awarded, ROY is a rookie,
+  6MOY is a bench player, COY is a CPU team with `playerId = null` (e.g. PHI),
+  each All-NBA team + All-Defensive has exactly 5, MVP sits on the All-NBA 1st
+  team, 15 distinct All-NBA players, Finals MVP matches the season.
+- UI: `/standings` shows the full Awards panel. `npm run build` clean. DB reset.
+
+### Mistakes / gotchas
+
+- **ROY had no candidate at first.** In the all-time initial draft the low-rated
+  `careerStage: "rookie"` players never crack a 9-man rotation, so none log box
+  scores → `find(rookie)` returned nothing and no ROY was created. Added a
+  fallback: if no rookie produced stats, award ROY to the **highest-rated
+  rostered rookie**. This becomes production-based naturally in Phase 7 when real
+  young rookie classes enter and some earn rotation minutes.
+
+### Not done yet (intentionally)
+
+- Offseason (aging, contract decrement, retirements, draft lottery, new real
+  rookie class) is Phase 7.
